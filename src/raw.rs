@@ -1244,7 +1244,9 @@ mod proptests {
     #[test]
     fn old_binary_without_prefix_length_doesnt_crash() {
         let bytes = to_bytes(&doc!{"oldbinary": (BinarySubtype::BinaryOld, Vec::new())});
-        assert!(RawBsonDocBuf::new(bytes).expect("init rawdoc").get_binary("oldbinary").is_err());
+        let doc = RawBsonDocBuf::new(bytes).expect("init rawdoc");
+        assert!(doc.get_binary("oldbinary").is_err());
+        assert_eq!(doc.get("oldbinary").expect("get oldbinary field").data, b"\0\0\0\0\x02");
     }
 
     proptest! {

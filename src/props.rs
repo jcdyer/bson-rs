@@ -1,5 +1,6 @@
 use crate::{
     Bson,
+    ordered::OrderedDocument,
     spec::BinarySubtype,
 };
 
@@ -25,6 +26,7 @@ pub(crate) fn arb_bson() -> impl Strategy<Value = Bson> {
         any::<f64>().prop_map(Bson::FloatingPoint),
         any::<i32>().prop_map(Bson::I32),
         any::<i64>().prop_map(Bson::I64),
+        any::<(String, String)>().prop_map(|(pat, opts)| Bson::RegExp(pat, opts)),
         any::<[u8; 12]>().prop_map(|bytes| Bson::ObjectId(crate::oid::ObjectId::with_bytes(bytes))),
         (arb_binary_subtype(), any::<Vec<u8>>()).prop_map(|(subtype, bytes)| {
             let bytes = if let BinarySubtype::BinaryOld = subtype {
@@ -39,7 +41,8 @@ pub(crate) fn arb_bson() -> impl Strategy<Value = Bson> {
                 bytes
             };
             Bson::Binary(subtype, bytes)
-        })
+        }),
+        any::<String>().prop_map(|js| Bson::JavaScriptCode(js)),
     ];
 
     leaf.prop_recursive(
@@ -49,6 +52,7 @@ pub(crate) fn arb_bson() -> impl Strategy<Value = Bson> {
         |inner| prop_oneof![
             prop::collection::hash_map("[^\0]*", inner.clone(), 0..12).prop_map(|map| Bson::Document(map.into_iter().collect())),
             prop::collection::vec(inner.clone(), 0..12).prop_map(Bson::Array),
+            (prop::collection::hash_map("[^\0]*", inner.clone(), 0..12).prop_map(|map| map.into_iter().collect::<OrderedDocument>()), any::<String>()).prop_map(|(scope, js)| Bson::JavaScriptCodeWithScope(js, scope)),
         ]
     )
 }
