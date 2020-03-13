@@ -1226,20 +1226,31 @@ mod proptests {
     use std::convert::TryInto;
     use proptest::prelude::*;
 
-    use super::{RawBsonDocBuf, RawError};
+    use super::RawBsonDocBuf;
     use crate::props::arb_bson;
-    use crate::{doc, encode_document, Bson, Document, ordered::OrderedDocument};
+    use crate::{
+        doc,
+        encode_document,
+        ordered::OrderedDocument,
+        spec::BinarySubtype,
+    };
 
-    fn to_bytes(doc: &Document) -> Vec<u8> {
+    fn to_bytes(doc: &OrderedDocument) -> Vec<u8> {
         let mut docbytes = Vec::new();
         encode_document(&mut docbytes, doc).unwrap();
         docbytes
     }
 
+    #[test]
+    fn old_binary_without_prefix_length_doesnt_crash() {
+        let bytes = to_bytes(&doc!{"oldbinary": (BinarySubtype::BinaryOld, Vec::new())});
+        assert!(RawBsonDocBuf::new(bytes).expect("init rawdoc").get_binary("oldbinary").is_err());
+    }
+
     proptest! {
         #[test]
         fn no_crashes(s: Vec<u8>) {
-            RawBsonDocBuf::new(s);
+            let _ = RawBsonDocBuf::new(s);
         }
 
         #[test]

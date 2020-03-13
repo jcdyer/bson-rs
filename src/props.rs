@@ -1,6 +1,5 @@
 use crate::{
     Bson,
-    ordered::OrderedDocument,
     spec::BinarySubtype,
 };
 
@@ -26,7 +25,21 @@ pub(crate) fn arb_bson() -> impl Strategy<Value = Bson> {
         any::<f64>().prop_map(Bson::FloatingPoint),
         any::<i32>().prop_map(Bson::I32),
         any::<i64>().prop_map(Bson::I64),
-        (arb_binary_subtype(), any::<Vec<u8>>()).prop_map(|(subtype, v)| Bson::Binary(subtype, v)),
+        any::<[u8; 12]>().prop_map(|bytes| Bson::ObjectId(crate::oid::ObjectId::with_bytes(bytes))),
+        (arb_binary_subtype(), any::<Vec<u8>>()).prop_map(|(subtype, bytes)| {
+            let bytes = if let BinarySubtype::BinaryOld = subtype {
+                // BinarySubtype::BinaryOld expects a four byte prefix, which the bson::Bson type
+                // leaves up to the caller.
+
+                let mut newbytes = Vec::with_capacity(bytes.len() + 4);
+                newbytes.extend_from_slice(&(bytes.len() as i32).to_le_bytes());
+                newbytes.extend_from_slice(&bytes);
+                newbytes
+            } else {
+                bytes
+            };
+            Bson::Binary(subtype, bytes)
+        })
     ];
 
     leaf.prop_recursive(
@@ -34,8 +47,8 @@ pub(crate) fn arb_bson() -> impl Strategy<Value = Bson> {
         256,
         10,
         |inner| prop_oneof![
-            //prop::collection::vec(inner.clone(), 0..10).prop_map(Bson::Array),
-            prop::collection::hash_map("[^\0]*", inner.clone(), 0..10).prop_map(|map| Bson::Document(map.into_iter().collect())),
+            prop::collection::hash_map("[^\0]*", inner.clone(), 0..12).prop_map(|map| Bson::Document(map.into_iter().collect())),
+            prop::collection::vec(inner.clone(), 0..12).prop_map(Bson::Array),
         ]
     )
 }
