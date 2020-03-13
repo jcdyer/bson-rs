@@ -673,6 +673,11 @@ impl<'a> RawBson<'a> {
             }
             let data = match subtype {
                 BinarySubtype::BinaryOld => {
+                    if length < 4 {
+                        return Err(RawError::MalformedValue(
+                            "old binary subtype has no inner declared length".into(),
+                        ));
+                    }
                     let oldlength = i32_from_slice(&self.data[5..9]);
                     if oldlength + 4 != length {
                         return Err(RawError::MalformedValue(
@@ -1213,5 +1218,42 @@ mod tests {
             Bson::Binary(BinarySubtype::Generic, vec![1, 2, 3])
         );
         assert_eq!(*doc.get("boolean").expect("boolean not found"), Bson::Boolean(false));
+    }
+}
+
+#[cfg(test)]
+mod proptests {
+    use std::convert::TryInto;
+    use proptest::prelude::*;
+
+    use super::{RawBsonDocBuf, RawError};
+    use crate::props::arb_bson;
+    use crate::{doc, encode_document, Bson, Document, ordered::OrderedDocument};
+
+    fn to_bytes(doc: &Document) -> Vec<u8> {
+        let mut docbytes = Vec::new();
+        encode_document(&mut docbytes, doc).unwrap();
+        docbytes
+    }
+
+    proptest! {
+        #[test]
+        fn no_crashes(s: Vec<u8>) {
+            RawBsonDocBuf::new(s);
+        }
+
+        #[test]
+        fn roundtrip_bson(bson in arb_bson()) {
+            println!("{:?}", bson);
+            let doc = doc!{"bson": bson};
+            let raw = to_bytes(&doc);
+            let raw = RawBsonDocBuf::new(raw);
+            prop_assert!(raw.is_ok());
+            let raw = raw.unwrap();
+            let roundtrip: Result<OrderedDocument, _> = raw.try_into();
+            prop_assert!(roundtrip.is_ok());
+            let roundtrip = roundtrip.unwrap();
+            prop_assert_eq!(doc, roundtrip);
+        }
     }
 }

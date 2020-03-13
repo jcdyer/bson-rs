@@ -1,0 +1,9 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc d9524431e43a575fbc684662f4730c6f99e6d54b9367beb3ce40c4a09c6a9914 # shrinks to s = []
+cc 1bd9c90d745d8df24ea297240ae03c2403a32d03749a332749923f88d7c25a75 # shrinks to bson = Document(OrderedDocument({"\u{0}": Null}))
+cc 424efe73678783d28c45bb66869dd518cfb6480b49ccb9ff43a8cbbec7e9d977 # shrinks to bson = Document(OrderedDocument({"": Document(OrderedDocument({"": BinData(2, 0x)}))}))

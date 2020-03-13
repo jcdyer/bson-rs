@@ -59,5 +59,9 @@ mod decoder;
 mod encoder;
 pub mod oid;
 pub mod ordered;
+
+#[cfg(test)]
+mod props;
+
 pub mod raw;
 pub mod spec;
